@@ -490,5 +490,5 @@ async def final_confirmation(message: types.Message, state: FSMContext):
 
 
 if __name__ == '__main__':
-    print("Бот запущен...")
+    print("Бот запущен.....")
     dp.run_polling(bot)
