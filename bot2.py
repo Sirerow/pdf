@@ -3,8 +3,9 @@ from aiogram.filters import Command
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from fpdf import FPDF
 
-API_TOKEN = 'TOKEN'
+API_TOKEN = '7923290604:AAF1GdnZa34eHrY-Ka8KVMAWM336ojqhM84'
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
@@ -80,6 +81,47 @@ final_keyboard = ReplyKeyboardMarkup(
 
 user_data = {}
 
+def generate_pdf_report(data, output_path="report.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    # Заголовок отчета
+    pdf.cell(200, 10, txt="Отчет по бизнес-процессу", ln=True, align='C')
+    pdf.ln(10)
+
+    # Добавление данных
+    pdf.cell(200, 10, txt=f"Название процесса: {data.get('process_name', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Владелец процесса: {data.get('user_name', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Тип процесса: {data.get('type_name', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Цель процесса: {data.get('process_goal', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Критерии успеха: {data.get('success_criteria', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Входы процесса: {data.get('process_inputs', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Выходы процесса: {data.get('process_outputs', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Границы процесса: {data.get('process_boundaries', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Исполнитель процесса: {data.get('process_executor', 'не указано')}", ln=True)
+    pdf.cell(200, 10, txt=f"Внешние участники: {data.get('external_participants', 'не указано')}", ln=True)
+
+    # Этапы процесса
+    pdf.cell(200, 10, txt="Этапы процесса:", ln=True)
+    for stage in data.get('process_stages', []):
+        pdf.cell(200, 10, txt=stage, ln=True)
+
+    # KPI процесса
+    pdf.cell(200, 10, txt="KPI процесса:", ln=True)
+    for kpi in data.get('kpi_description', []):
+        pdf.cell(200, 10, txt=kpi, ln=True)
+
+    # Риски процесса
+    pdf.cell(200, 10, txt="Риски процесса:", ln=True)
+    for risk in data.get('risks_description', []):
+        pdf.cell(200, 10, txt=risk, ln=True)
+
+    # Завершающее сообщение
+    pdf.cell(200, 10, txt="Отчет составлен успешно.", ln=True, align='C')
+
+    pdf.output(output_path)
+    return output_path
 
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
@@ -427,47 +469,25 @@ async def process_image(message: types.Message, state: FSMContext):
     await state.set_state(Form.finalConfirmation)
 
 
+
 @dp.message(Form.finalConfirmation)
 async def final_confirmation(message: types.Message, state: FSMContext):
-    data = await state.get_data()
     if message.text == "Отредактировать":
-        await message.answer("Введите изображение заново", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(Form.processImage)
+        await message.answer("Введите название процесса заново", reply_markup=ReplyKeyboardRemove())
+        await state.set_state(Form.reportName)
     elif message.text == "Сбросить":
         await state.clear()
-        await message.answer("Процесс сброшен. Начинаем заново.", reply_markup=ReplyKeyboardRemove())
-        await message.answer("Введите название процесса", reply_markup=ReplyKeyboardRemove())
-        await state.set_state(Form.reportName)
+        await message.answer("Все данные сброшены. Начните заново с /start")
+    elif message.text == "Выгрузить PDF":
+        # Генерация и отправка PDF отчета
+        data = user_data
+        pdf_file_path = generate_pdf_report(data)  # Генерация PDF отчета
+        with open(pdf_file_path, "rb") as pdf_file:
+            await message.answer_document(pdf_file)  # Отправка PDF
+        await message.answer("Отчет успешно сгенерирован и отправлен.", reply_markup=ReplyKeyboardRemove())
     else:
-        await message.answer("Отчет успешно завершен!", reply_markup=ReplyKeyboardRemove())
+        await message.answer("Пожалуйста, используйте кнопки", reply_markup=final_keyboard)
 
-        # Формирование полного отчета
-        data = await state.get_data()
-        report = (
-            f"Название процесса: {data['process_name']}\n"
-            f"Имя владельца: {data['user_name']}\n"
-            f"Тип процесса: {data['type_name']}\n"
-            f"Цель процесса: {data['process_goal']}\n"
-            f"Критерии успеха: {data['success_criteria']}\n"
-            f"Входы процесса: {data['process_inputs']}\n"
-            f"Выходы процесса: {data['process_outputs']}\n"
-            f"Границы процесса: {data['process_boundaries']}\n"
-            f"Владелец процесса: {data['process_owner']}\n"
-            f"Исполнитель процесса: {data['process_executor']}\n"
-            f"Внешние участники: {data['external_participants']}\n"
-            f"Этапы процесса: {', '.join(data.get('process_stages', []))}\n"
-            f"Материальные ресурсы: {data['material_resources']}\n"
-            f"Информационные ресурсы: {data['info_resources']}\n"
-            f"Программные ресурсы: {data['software_resources']}\n"
-            f"KPI процесса: {', '.join  (data.get('kpi_description', []))}\n"
-            f"Риски процесса: {', '.join(data.get('risks_description', []))}\n"
-            f"Изображение процесса: {data['process_image']}\n"
-        )
-
-        await message.answer(f"Вот ваш финальный отчет:\n{report}", reply_markup=ReplyKeyboardRemove())
-
-        # Здесь можно добавить код для экспорта отчета в PDF
-        await state.clear()
 
 if __name__ == '__main__':
     print("Бот запущен...")
